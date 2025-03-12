@@ -88,58 +88,88 @@ function resetSpritePool(spritePool) {
 }
 
 function renderSprites(player, sprites, zBuffer, backImageData) {
+    // Sort sprites by distance (furthest first) for proper rendering order
+    sprites.sort((a, b) => {
+        const distA = Math.pow(player.pos[0] - a.pos[0], 2) + Math.pow(player.pos[1] - a.pos[1], 2);
+        const distB = Math.pow(player.pos[0] - b.pos[0], 2) + Math.pow(player.pos[1] - b.pos[1], 2);
+        return distB - distA;
+    });
+
     for (let i = 0; i < sprites.length; i++) {
         const spriteX = sprites[i].pos[0] - player.pos[0];
         const spriteY = sprites[i].pos[1] - player.pos[1];
-
         const det = player.plane[0] * player.dir[1] - player.dir[0] * player.plane[1];
-        if (Math.abs(det) < 1e-6) continue; // Prevent division by near-zero values
-
         const invDet = 1.0 / det;
         const transformX = invDet * (player.dir[1] * spriteX - player.dir[0] * spriteY);
         let transformY = invDet * (-player.plane[1] * spriteX + player.plane[0] * spriteY);
 
-        if (transformY <= 0.01) continue; // Prevent near-zero issues
+        // Prevent division by zero and negative values
+        if (transformY <= 0.1) continue;
 
-        const spriteScreenX = Math.round((backImageData.width / 2) * (1 + transformX / transformY));
+        const spriteScreenX = Math.floor((backImageData.width / 2) * (1 + transformX / transformY));
 
-        const spriteHeight = Math.abs(Math.floor(backImageData.height / transformY));
-        let drawStartY = Math.max(0, -spriteHeight / 2 + backImageData.height / 2);
-        let drawEndY = Math.min(backImageData.height - 1, spriteHeight / 2 + backImageData.height / 2);
+        // Calculate sprite size with a proper vertical offset
+        // Use a vertical factor to maintain sprite height at close distances
+        const verticalPosition = 45.0; // 0.0 = center, adjust if needed for different heights
 
-        const spriteWidth = Math.abs(Math.floor(backImageData.height / transformY));
-        let drawStartX = Math.max(0, -spriteWidth / 2 + spriteScreenX);
-        let drawEndX = Math.min(backImageData.width - 1, spriteWidth / 2 + spriteScreenX);
+        // Apply a minimum distance to prevent extreme scaling
+        const effectiveDistance = Math.max(transformY, 0.3);
 
-        for (let stripe = drawStartX; stripe < drawEndX; stripe++) {
-            const texX = Math.min(
-                Math.max(
-                    0,
-                    ~~(((stripe - (-spriteWidth / 2 + spriteScreenX)) * sprites[i].imgData.width) / spriteWidth),
-                ),
-                sprites[i].imgData.width - 1,
+        // Calculate sprite dimensions based on effective distance
+        const spriteHeight = Math.abs(Math.floor(backImageData.height / effectiveDistance));
+        const spriteWidth = Math.abs(Math.floor(backImageData.height / effectiveDistance));
+
+        // Calculate vertical position with proper centering
+        const vMoveScreen = Math.floor(verticalPosition / effectiveDistance);
+        let drawStartY = Math.floor(Math.max(0, -spriteHeight / 2 + backImageData.height / 2 + vMoveScreen));
+        let drawEndY = Math.floor(
+            Math.min(backImageData.height - 1, spriteHeight / 2 + backImageData.height / 2 + vMoveScreen),
+        );
+
+        let drawStartX = Math.floor(Math.max(0, -spriteWidth / 2 + spriteScreenX));
+        let drawEndX = Math.floor(Math.min(backImageData.width - 1, spriteWidth / 2 + spriteScreenX));
+
+        // Ensure we're using integer indices for the zBuffer array
+        for (let stripe = Math.floor(drawStartX); stripe < drawEndX; stripe++) {
+            // Make sure stripe is a valid integer
+            const stripeIndex = Math.floor(stripe);
+
+            // Calculate texture X coordinate with proper normalization
+            const texX = Math.floor(
+                ((stripe - (-spriteWidth / 2 + spriteScreenX)) * sprites[i].imgData.width) / spriteWidth,
             );
+            const boundedTexX = Math.min(Math.max(0, texX), sprites[i].imgData.width - 1);
 
-            if (transformY > 0 && stripe > 0 && stripe < backImageData.width && transformY < zBuffer[stripe]) {
+            // Ensure the index is within bounds and check zBuffer
+            if (stripeIndex >= 0 && stripeIndex < zBuffer.length && transformY < zBuffer[stripeIndex]) {
                 for (let y = drawStartY; y < drawEndY; y++) {
-                    const d = y * backImageData.width + stripe;
-                    const texY = Math.min(
-                        Math.max(0, Math.floor(((y - drawStartY) * sprites[i].imgData.height) / spriteHeight)),
-                        sprites[i].imgData.height - 1,
-                    );
+                    // Calculate the normalized Y coordinate in the texture
+                    const normalizedY = y - drawStartY;
+                    const texY = Math.floor((normalizedY * sprites[i].imgData.height) / spriteHeight);
+                    const boundedTexY = Math.min(Math.max(0, texY), sprites[i].imgData.height - 1);
 
-                    const imgIndex = (texY * sprites[i].imgData.width + texX) * 4;
-                    const color = sprites[i].imgData.data[imgIndex];
-                    const alpha = sprites[i].imgData.data[imgIndex + 3];
+                    // Calculate the exact pixel in the sprite texture
+                    const imgIndex = (boundedTexY * sprites[i].imgData.width + boundedTexX) * 4;
 
-                    if (alpha > 0) {
-                        backImageData.data[d * 4] = color;
-                        backImageData.data[d * 4 + 1] = sprites[i].imgData.data[imgIndex + 1];
-                        backImageData.data[d * 4 + 2] = sprites[i].imgData.data[imgIndex + 2];
-                        backImageData.data[d * 4 + 3] = alpha;
+                    // Check bounds to avoid undefined access
+                    if (imgIndex >= 0 && imgIndex < sprites[i].imgData.data.length - 3) {
+                        const color = sprites[i].imgData.data[imgIndex];
+                        const alpha = sprites[i].imgData.data[imgIndex + 3];
+
+                        // Only draw non-transparent pixels
+                        if (alpha > 0 && color !== 0) {
+                            // Using a higher alpha threshold for better quality
+                            const backIndex = (y * backImageData.width + stripeIndex) * 4;
+                            // Ensure we're not writing outside the backImageData bounds
+                            if (backIndex >= 0 && backIndex < backImageData.data.length - 3) {
+                                backImageData.data[backIndex] = color;
+                                backImageData.data[backIndex + 1] = sprites[i].imgData.data[imgIndex + 1];
+                                backImageData.data[backIndex + 2] = sprites[i].imgData.data[imgIndex + 2];
+                                backImageData.data[backIndex + 3] = alpha;
+                            }
+                        }
                     }
                 }
-                zBuffer[stripe] = transformY; // Ensure zBuffer is properly updated
             }
         }
     }
@@ -493,12 +523,7 @@ function renderWalls(ctx, map, player, zBuffer, backImageData) {
                 break;
         }
 
-        const EPSILON = 1e-6;
-        const MIN_DEPTH = 0.01;
-
-        const safePerpWallDist = Math.max(perpWallDist + EPSILON, MIN_DEPTH);
-        zBuffer[x] = safePerpWallDist;
-        // zBuffer[x] = perpWallDist;
+        zBuffer[x] = perpWallDist;
 
         const stripHeight = backImageData.height / zBuffer[x];
         const wallTopY = Math.max(0, ~~((height - stripHeight) / 2));
@@ -700,7 +725,7 @@ function cullAndSortSprites(player, spritePool, visibleSprites) {
     let mapShown = MAP_SHOWN;
     let initialRot = sides.get("bottom-left");
 
-    const assets = await Promise.all([loadImageData("./assets/bomb.png")]);
+    const assets = await Promise.all([loadImageData("./assets/barrel.png")]);
 
     const spritePool = {
         items: [assets[0]],
@@ -710,6 +735,14 @@ function cullAndSortSprites(player, spritePool, visibleSprites) {
     const visibleSprites = [
         {
             pos: [21, 12],
+            imgData: assets[0],
+        },
+        {
+            pos: [22, 12],
+            imgData: assets[0],
+        },
+        {
+            pos: [22, 13],
             imgData: assets[0],
         },
     ];
