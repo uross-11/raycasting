@@ -13,22 +13,19 @@ const map = [
     [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
     [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
     [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 4, 4, 4, 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 4, 0, 4, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 4, 0, 0, 0, 0, 5, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 4, 0, 4, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 4, 0, 4, 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 4, 4, 4, 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 0, 0, 0, 0, 0, 0, 0, 4, 4, 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 4, 0, 4, 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 0, 0, 4, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 0, 0, 0, 0, 0, 5, 0, 4, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 0, 0, 4, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 0, 0, 4, 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 1],
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
 ];
 
-// const HEIGHT_SCALE = 1;
-// const LINE_THICKNESS = 1;
-// const DRAW_EDGES = false;
-
+// TODO: add settings menu
 const FACTOR = 50;
 const CANVAS_WIDTH = 16 * FACTOR;
 const CANVAS_HEIGHT = 9 * FACTOR;
@@ -40,9 +37,8 @@ const SENSITIVITY = 3;
 const NEAR_CLIPPING_PLANE = 0.1;
 const FAR_CLIPPING_PLANE = 10.0;
 
-// map
 const TILE_SIZE = 24 * (FACTOR / 70);
-const MAP_SHOWN = true;
+const MAP_SHOWN = false;
 
 function isPlayerColliding(y, x) {
     return (
@@ -83,8 +79,9 @@ function createSpritePool() {
     };
 }
 
-function resetSpritePool(spritePool) {
-    spritePool.length = 0;
+function resetSpritePool(spritePool, visibleSprites) {
+    spritePool.length = visibleSprites.length;
+    spritePool.items = visibleSprites;
 }
 
 function renderSprites(player, sprites, zBuffer, backImageData) {
@@ -101,7 +98,7 @@ function renderSprites(player, sprites, zBuffer, backImageData) {
         const det = player.plane[0] * player.dir[1] - player.dir[0] * player.plane[1];
         const invDet = 1.0 / det;
         const transformX = invDet * (player.dir[1] * spriteX - player.dir[0] * spriteY);
-        let transformY = invDet * (-player.plane[1] * spriteX + player.plane[0] * spriteY);
+        const transformY = invDet * (-player.plane[1] * spriteX + player.plane[0] * spriteY);
 
         // Prevent division by zero and negative values
         if (transformY <= 0.1) continue;
@@ -175,19 +172,12 @@ function renderSprites(player, sprites, zBuffer, backImageData) {
     }
 }
 
-// class Camera {
-//   constructor(pos, dir, plane, width, height) {}
-// }
-
-// class Game {
-//   constructor(me, players, camera, map, mapShown) {}
-// }
-
 class Player {
     constructor(
         pos,
         dir,
         plane,
+        id,
         movingForward = false,
         movingBackward = false,
         movingLeft = false,
@@ -198,6 +188,7 @@ class Player {
         this.pos = pos;
         this.dir = dir;
         this.plane = plane;
+        this.id = id;
         this.movingForward = movingForward;
         this.movingBackward = movingBackward;
         this.movingLeft = movingLeft;
@@ -233,17 +224,6 @@ class Player {
         if (!isPlayerColliding(newY, this.pos[0])) this.pos[1] = newY;
     }
 }
-
-const sides = new Map([
-    ["left", Math.PI],
-    ["top", Math.PI / 2],
-    ["right", 0],
-    ["bottom", (3 / 2) * Math.PI],
-    ["bottom-right", (5 / 4) * Math.PI],
-    ["bottom-left", (7 / 4) * Math.PI],
-    ["top-right", Math.PI / 4],
-    ["top-left", (3 / 4) * Math.PI],
-]);
 
 function randomMap() {
     for (let i = 0; i < map.length; i++) {
@@ -324,6 +304,8 @@ function drawPlayersOnMap(ctx, players) {
 
 function drawSpritesOnMap(ctx, sprites) {
     for (const sprite of sprites) {
+        if (sprite.tag === "enemy") continue;
+
         ctx.putImageData(
             sprite.imgData,
             sprite.pos[0] * TILE_SIZE,
@@ -408,10 +390,10 @@ function renderMap(ctx, map, players, sprites) {
             if (map[mapPos[1]][mapPos[0]] !== 0) break;
         }
 
-        const perpWallDist =
-            side === 0
-                ? Math.abs((mapPos[0] - pos[0] + (1 - step[0]) / 2) / rayDir[0])
-                : Math.abs((mapPos[1] - pos[1] + (1 - step[1]) / 2) / rayDir[1]);
+        // const perpWallDist =
+        //     side === 0
+        //         ? Math.abs((mapPos[0] - pos[0] + (1 - step[0]) / 2) / rayDir[0])
+        //         : Math.abs((mapPos[1] - pos[1] + (1 - step[1]) / 2) / rayDir[1]);
 
         if (x % 64 === 0) {
             // draw ray until it hits a wall
@@ -546,8 +528,14 @@ function displaySwapBackImageData(backCtx, backImageData, ctx) {
     ctx.drawImage(backCtx.canvas, 0, 0, ctx.canvas.width, ctx.canvas.height);
 }
 
-function renderEnemy(assets, spritePool) {
-    pushSprite(spritePool, assets[0], [22, 12], 0.5, 1, [0, 0], [assets[0].width, assets[0].height]);
+function renderEnemy(enemySprite, players, me) {
+    if (!enemySprite) return; // Early return if no enemy sprite found
+
+    for (let player of players.values()) {
+        if (me.id === player.id) continue;
+
+        enemySprite.pos = player.pos;
+    }
 }
 
 function renderGame(
@@ -557,52 +545,29 @@ function renderGame(
     deltaTime,
     mapShown,
     players,
-    assets,
     spritePool,
     visibleSprites,
     zBuffer,
     backImageData,
     backCtx,
+    enemySprite,
 ) {
-    resetSpritePool(spritePool);
+    resetSpritePool(spritePool, visibleSprites);
     backImageData.data.fill(0);
 
     renderFloorAndCeiling(ctx);
     renderWalls(ctx, map, me, zBuffer, backImageData);
-    renderEnemy(assets, spritePool);
-    // cullAndSortSprites(me, spritePool, visibleSprites);
-    renderSprites(me, visibleSprites, zBuffer, backImageData);
+    renderEnemy(enemySprite, players, me);
+    renderSprites(me, spritePool.items, zBuffer, backImageData);
     updatePlayer(me);
     displaySwapBackImageData(backCtx, backImageData, ctx);
     if (mapShown) renderMap(ctx, map, players, visibleSprites);
     renderFPS(ctx, deltaTime);
+
+    ctx.fillStyle = "white";
+    ctx.font = "14px Arial";
+    ctx.fillText(me.id, 20, 20);
 }
-
-// async function loadImage(url) {
-//   const image = new Image();
-//   image.crossOrigin = "anonymous";
-//   image.src = url;
-//   return new Promise((resolve, reject) => {
-//     image.onload = () => resolve(image);
-//     image.onerror = (e) => {
-//       console.error("Error loading image:", e);
-//       reject;
-//     };
-//   });
-// }
-
-// async function loadImageData(url) {
-//   const image = await loadImage(url);
-//   const canvas = document.createElement("canvas");
-//   const ctx = canvas.getContext("2d");
-//   canvas.width = image.width;
-//   canvas.height = image.height;
-//   ctx.drawImage(image, 0, 0);
-
-//   console.log(image.width, image.height);
-
-//   return ctx.getImageData(0, 0, image.width, image.height).data;
-// }
 
 async function loadImage(url) {
     const image = new Image();
@@ -669,47 +634,9 @@ function pushSprite(spritePool, image, position, z, scale, cropPosition, cropSiz
     spritePool.length += 1;
 }
 
-function cullAndSortSprites(player, spritePool, visibleSprites) {
-    let sp = [0, 0];
-    const dir = [Math.cos(player.direction), Math.sin(player.direction)];
-    const fov = [Math.cos(0.5), Math.sin(0.5)];
-
-    visibleSprites.length = 0;
-    for (let i = 0; i < spritePool.length; ++i) {
-        const sprite = spritePool.items[i];
-
-        sp = [sprite.position[0] - player.pos[0], sprite.position[1] - player.pos[1]];
-        const spl = Math.sqrt(sp[0] * sp[0] + sp[1] * sp[1]);
-
-        if (spl <= NEAR_CLIPPING_PLANE) continue; // Sprite is too close
-        if (spl >= FAR_CLIPPING_PLANE) continue; // Sprite is too far
-
-        const cos = (sp[0] * dir[0] + sp[1] * dir[1]) / spl;
-        // TODO: @perf the sprites that are invisible on the screen but within FOV 180° are not culled
-        // It may or may not impact the performance of renderSprites()
-        if (cos < 0) continue; // Sprite is outside of the maximal FOV 180°
-        sprite.dist = NEAR_CLIPPING_PLANE / cos;
-        sp = spl === 0 ? sp : [(1 / spl) * sp[0], (1 / spl) * sp[1]]; // Normalize
-        sp = [sp[0] * sprite.dist, sp[1] * sprite.dist]; //Scale
-        sp = [sp[0] + player.pos[0], sp[1] + player.pos[1]]; //Add
-        sp = [sp[0] - 0.5, sp[1] - 0.5]; //Subtract
-        sprite.t =
-            (Math.sqrt(sp[0] * sp[0] + sp[1] * sp[1]) / Math.sqrt(fov[0] * fov[0] + fov[1] * fov[1])) *
-            Math.sign(sp[0] * fov[1] + sp[1] * fov[0]);
-
-        sprite.pdist = (sprite.position[0] - player.pos[0]) * dir[0] + (sprite.position[1] - player.pos[1]) * dir[1];
-
-        // TODO: I'm not sure if these checks are necessary considering the `spl <= NEAR_CLIPPING_PLANE` above
-        if (sprite.pdist < NEAR_CLIPPING_PLANE) continue;
-        if (sprite.pdist >= FAR_CLIPPING_PLANE) continue;
-
-        visibleSprites.push(sprite);
-    }
-
-    visibleSprites.sort((a, b) => b.pdist - a.pdist);
-}
-
 (async () => {
+    const ws = new WebSocket("ws://localhost:6900");
+
     const canvas = document.getElementById("canvas");
     canvas.width = CANVAS_WIDTH;
     canvas.height = CANVAS_HEIGHT;
@@ -723,46 +650,82 @@ function cullAndSortSprites(player, spritePool, visibleSprites) {
     backCtx.imageSmoothingEnabled = false;
 
     let mapShown = MAP_SHOWN;
-    let initialRot = sides.get("bottom-left");
+    let id;
+    let me;
+    const players = new Map();
 
-    const assets = await Promise.all([loadImageData("./assets/barrel.png")]);
+    ws.addEventListener("message", (event) => {
+        const data = JSON.parse(event.data);
 
-    const spritePool = {
-        items: [assets[0]],
-        length: 0,
-    };
+        switch (data.type) {
+            case "hello":
+                id = data.id;
+                for (const player of data.players) {
+                    players.set(player.id, new Player(player.pos, player.dir, player.plane, player.id));
+                }
+                me = players.get(id);
+                break;
+
+            case "update":
+                for (const player of data.players) {
+                    if (players.has(player.id)) {
+                        if (player.id === id) {
+                            // if the difference is too big, reset the player, else just skip
+                            if (
+                                Math.abs(player.pos[0] - me.pos[0]) > 0.25 ||
+                                Math.abs(player.pos[1] - me.pos[1]) > 0.25
+                            ) {
+                                me.pos = player.pos;
+                                me.dir = player.dir;
+                                me.plane = player.plane;
+                            }
+                        } else {
+                            players.get(player.id).pos = player.pos;
+                            players.get(player.id).dir = player.dir;
+                            players.get(player.id).plane = player.plane;
+                        }
+                    } else {
+                        players.set(player.id, new Player(player.pos, player.dir, player.plane, player.id));
+                    }
+                }
+                break;
+
+            default:
+                throw new Error("Unknown message type");
+        }
+    });
+
+    const assets = await Promise.all([loadImageData("./assets/barrel.png"), loadImageData("./assets/bomb.png")]);
 
     const visibleSprites = [
         {
-            pos: [21, 12],
-            imgData: assets[0],
-        },
-        {
-            pos: [22, 12],
-            imgData: assets[0],
-        },
-        {
-            pos: [22, 13],
-            imgData: assets[0],
+            pos: [0, 0],
+            imgData: assets[1],
+            tag: "enemy",
         },
     ];
+
+    const spritePool = {
+        items: [],
+        length: 0,
+    };
 
     const backImageData = new ImageData(CANVAS_WIDTH, CANVAS_HEIGHT);
     backImageData.data.fill(255);
 
-    const players = new Map([
-        [
-            0,
-            new Player(
-                [22.5, 1.5],
-                [-Math.cos(initialRot), -Math.sin(initialRot)],
-                [-Math.sin(initialRot), Math.cos(initialRot)],
-            ),
-        ],
-        // [1, new Player([22, 12], [-1, 0], [0, 0.66])],
-    ]);
+    // [
+    // [
+    //     0,
+    //     new Player(
+    //         [22.5, 1.5],
+    //         [-Math.cos(initialRot), -Math.sin(initialRot)],
+    //         [-Math.sin(initialRot), Math.cos(initialRot)],
+    //     ),
+    // ],
+    // [1, new Player([22, 12], [-1, 0], [0, 0.66])],
+    // ]
 
-    const me = players.get(0);
+    const enemySprite = visibleSprites.find((sprite) => sprite.tag === "enemy");
 
     // const game = new Game(player, players, new Camera(), map, mapShown);
 
@@ -835,28 +798,53 @@ function cullAndSortSprites(player, spritePool, visibleSprites) {
     //   console.log(window.performance.memory.usedJSHeapSize / 1024 / 1024 + " MB");
     // }, 5000);
 
-    // randomMap();
-
     let prevTimestamp = 0;
 
     const frame = (timestamp) => {
         const deltaTime = (timestamp - prevTimestamp) / 1000;
         prevTimestamp = timestamp;
 
-        renderGame(
-            ctx,
-            map,
-            me,
-            deltaTime,
-            mapShown,
-            players,
-            assets,
-            spritePool,
-            visibleSprites,
-            zBuffer,
-            backImageData,
-            backCtx,
-        );
+        if (!me) {
+            ctx.fillStyle = "black";
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        }
+
+        if (me) {
+            if (
+                me.movingForward ||
+                me.movingBackward ||
+                me.movingLeft ||
+                me.movingRight ||
+                me.turningLeft ||
+                me.turningRight
+            ) {
+                ws.send(
+                    JSON.stringify({
+                        type: "move",
+                        id,
+                        pos: me.pos,
+                        dir: me.dir,
+                        plane: me.plane,
+                    }),
+                );
+            }
+
+            renderGame(
+                ctx,
+                map,
+                me,
+                deltaTime,
+                mapShown,
+                players,
+                spritePool,
+                visibleSprites,
+                zBuffer,
+                backImageData,
+                backCtx,
+                enemySprite,
+            );
+        }
+
         window.requestAnimationFrame(frame);
     };
 
