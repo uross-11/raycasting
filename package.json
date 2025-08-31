@@ -1,0 +1,16 @@
+{
+  "name": "raycasting",
+  "version": "0.0.0",
+  "description": "",
+  "license": "MIT",
+  "author": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "ws": "node server.js",
+    "frontend": "http-server -p 3000 -a 127.0.0.1 -s -c-1"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}
