@@ -18,10 +18,14 @@ const CANVAS_HEIGHT = 9 * game.FACTOR;
     const gameInstance = new game.Game(CANVAS_WIDTH, CANVAS_HEIGHT);
     await gameInstance.initialize();
 
-    canvas.addEventListener("click", () => canvas.requestPointerLock());
     window.addEventListener("keydown", (e) => !e.repeat && gameInstance.handleKeyDown(e.code));
     window.addEventListener("keyup", (e) => !e.repeat && gameInstance.handleKeyUp(e.code));
-    window.addEventListener("mousemove", (e) => document.pointerLockElement === canvas && gameInstance.handleMouseMove(e.movementX));
+
+    canvas.addEventListener("click", () => canvas.requestPointerLock());
+    window.addEventListener(
+        "mousemove",
+        (e) => document.pointerLockElement === canvas && gameInstance.handleMouseMove(e.movementX),
+    );
 
     const ws = new WebSocket("ws://localhost:6900");
     ws.addEventListener("message", (event) => gameInstance.handleMessage(JSON.parse(event.data)));
