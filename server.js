@@ -14,7 +14,7 @@ wss.getUniqueID = function () {
 const BOARD_WIDTH = 20;
 const BOARD_HEIGHT = 20;
 
-const TICK_RATE = 1000 / 1;
+const TICK_RATE = 1000 / 60;
 
 const sides = new Map([
     ["left", Math.PI],
