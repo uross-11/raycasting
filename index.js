@@ -1,4 +1,5 @@
 import * as game from "./game.js";
+import { mapKeyCode, MESSAGE_TYPE_IDENTIFY, encodeIdentify, MESSAGE_TYPE_MOVE_INPUT, MESSAGE_TYPE_SHOOT_ACTION, MESSAGE_TYPE_MOUSE_INPUT } from "./common.js";
 
 const CANVAS_WIDTH = 16 * game.FACTOR;
 const CANVAS_HEIGHT = 9 * game.FACTOR;
@@ -18,17 +19,103 @@ const CANVAS_HEIGHT = 9 * game.FACTOR;
     const gameInstance = new game.Game(CANVAS_WIDTH, CANVAS_HEIGHT);
     await gameInstance.initialize();
 
-    window.addEventListener("keydown", (e) => !e.repeat && gameInstance.handleKeyDown(e.code));
-    window.addEventListener("keyup", (e) => !e.repeat && gameInstance.handleKeyUp(e.code));
+    const ws = new WebSocket("ws://localhost:6900");
+    ws.binaryType = "arraybuffer";
+
+    ws.addEventListener("open", () => {
+        const clientId = localStorage.getItem('clientId');
+        if (clientId) {
+            ws.send(encodeIdentify(clientId));
+        }
+    });
+
+    window.addEventListener("keydown", (e) => {
+        if (e.repeat) return;
+        const changed = gameInstance.handleKeyDown(e.code);
+        if (changed) {
+            if (e.code === 'KeyF') {
+                const buf = new ArrayBuffer(3);
+                const view = new DataView(buf);
+                view.setUint8(0, MESSAGE_TYPE_SHOOT_ACTION); // Type 2 for shoot action
+                view.setUint8(1, 0); // Key is not used for shoot, set to 0
+                view.setUint8(2, 1); // Pressed: true
+                ws.send(buf);
+            } else {
+                const key = mapKeyCode(e.code);
+                if (key !== 255) {
+                    const buf = new ArrayBuffer(3);
+                    const view = new DataView(buf);
+                    view.setUint8(0, MESSAGE_TYPE_MOVE_INPUT);
+                    view.setUint8(1, key);
+                    view.setUint8(2, 1);
+                    ws.send(buf);
+                }
+            }
+        }
+    });
+
+    window.addEventListener("keyup", (e) => {
+        const changed = gameInstance.handleKeyUp(e.code);
+        if (changed) {
+            if (e.code === 'KeyF') {
+                // No need to send keyup for shooting, it's an instant action
+            } else {
+                const key = mapKeyCode(e.code);
+                if (key !== 255) {
+                    const buf = new ArrayBuffer(3);
+                    const view = new DataView(buf);
+                    view.setUint8(0, MESSAGE_TYPE_MOVE_INPUT);
+                    view.setUint8(1, key);
+                    view.setUint8(2, 0);
+                    ws.send(buf);
+                }
+            }
+        }
+    });
 
     canvas.addEventListener("click", () => canvas.requestPointerLock());
-    window.addEventListener(
-        "mousemove",
-        (e) => document.pointerLockElement === canvas && gameInstance.handleMouseMove(e.movementX),
-    );
+    let mouseDxAccum = 0;
+    const MOUSE_SEND_INTERVAL_MS = 16; // Reduced interval for more frequent updates
+    const flushMouse = () => {
+        if (Math.abs(mouseDxAccum) < 0.5) {
+            mouseDxAccum = 0;
+            return;
+        }
+        const dx = Math.max(-200, Math.min(200, Math.trunc(mouseDxAccum)));
+        mouseDxAccum = 0;
+        if (ws.readyState === WebSocket.OPEN) {
+            const buf = new ArrayBuffer(3);
+            const view = new DataView(buf);
+            view.setUint8(0, MESSAGE_TYPE_MOUSE_INPUT);
+            view.setInt16(1, dx, true);
+            ws.send(buf);
+        } else {
+            console.warn(`[Client Mouse] WebSocket not open, readyState: ${ws.readyState}`);
+        }
+    };
+    setInterval(flushMouse, MOUSE_SEND_INTERVAL_MS);
 
-    const ws = new WebSocket("ws://localhost:6900");
-    ws.addEventListener("message", (event) => gameInstance.handleMessage(JSON.parse(event.data)));
+    window.addEventListener("mousemove", (e) => {
+        if (document.pointerLockElement !== canvas) return;
+        gameInstance.handleMouseMove(e.movementX);
+        mouseDxAccum += e.movementX;
+    });
+
+    ws.addEventListener("message", (event) => {
+        if (event.data instanceof ArrayBuffer) {
+            const view = new DataView(event.data);
+            const type = view.getUint8(0);
+            if (type === 10) { // Hello message
+                const idLen = view.getUint8(1);
+                const dec = new TextDecoder();
+                const serverClientId = dec.decode(new Uint8Array(event.data, 2, idLen));
+                localStorage.setItem('clientId', serverClientId);
+            }
+            gameInstance.handleBinaryMessage(event.data);
+        } else {
+            gameInstance.handleMessage(JSON.parse(event.data));
+        }
+    });
 
     let prevTimestamp = 0;
     const frame = (timestamp) => {
@@ -36,11 +123,6 @@ const CANVAS_HEIGHT = 9 * game.FACTOR;
         prevTimestamp = timestamp;
 
         gameInstance.update(deltaTime);
-
-        if (gameInstance.shouldSendUpdate()) {
-            const playerState = gameInstance.getPlayerState();
-            if (playerState) ws.send(JSON.stringify(playerState));
-        }
 
         gameInstance.render(ctx, backCtx, deltaTime);
 
