@@ -8,7 +8,8 @@
   "type": "module",
   "scripts": {
     "ws": "node server.js",
-    "frontend": "http-server -p 3000 -a 127.0.0.1 -s -c-1"
+    "frontend": "http-server -p 3000 -a 127.0.0.1 -s -c-1",
+    "bots": "node bots.js --count=50"
   },
   "dependencies": {
     "ws": "^8.18.3"
