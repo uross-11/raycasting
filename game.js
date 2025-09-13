@@ -808,29 +808,31 @@ export class Game {
         let off = 0;
         const type = view.getUint8(off);
         off += 1;
-        if (type === 10) {
-            const idLen = view.getUint8(off);
-            off += 1;
-            const dec = new TextDecoder();
-            const myId = dec.decode(u8.subarray(off, off + idLen));
-            off += idLen;
-            const innerType = view.getUint8(off);
-            off += 1;
-            if (innerType !== 11) return;
+        if (type === common.MESSAGE_TYPE_HELLO) {
+            let result = common.readString(view, off, u8);
+            const myId = result.str;
+            off = result.off;
+
             const count = view.getUint16(off, true);
             off += 2;
             this.players.clear();
             for (let i = 0; i < count; i++) {
-                const pidLen = view.getUint8(off);
-                off += 1;
-                const pid = dec.decode(u8.subarray(off, off + pidLen));
-                off += pidLen;
-                const pos = [view.getFloat32(off, true), view.getFloat32(off + 4, true)];
-                off += 8;
-                const dir = [view.getFloat32(off, true), view.getFloat32(off + 4, true)];
-                off += 8;
-                const plane = [view.getFloat32(off, true), view.getFloat32(off + 4, true)];
-                off += 8;
+                result = common.readString(view, off, u8);
+                const pid = result.str;
+                off = result.off;
+
+                result = common.readVector(view, off);
+                const pos = result.vector;
+                off = result.off;
+
+                result = common.readVector(view, off);
+                const dir = result.vector;
+                off = result.off;
+
+                result = common.readVector(view, off);
+                const plane = result.vector;
+                off = result.off;
+
                 const health = view.getFloat32(off, true);
                 off += 4;
                 this.players.set(
@@ -840,21 +842,27 @@ export class Game {
             }
             this.id = myId;
             this.me = this.players.get(this.id);
-        } else if (type === 11) {
+        } else if (type === common.MESSAGE_TYPE_UPDATE) {
             const dec = new TextDecoder();
             const playerCount = view.getUint16(off, true);
             off += 2;
             for (let i = 0; i < playerCount; i++) {
-                const pidLen = view.getUint8(off);
-                off += 1;
-                const pid = dec.decode(u8.subarray(off, off + pidLen));
-                off += pidLen;
-                const pos = [view.getFloat32(off, true), view.getFloat32(off + 4, true)];
-                off += 8;
-                const dir = [view.getFloat32(off, true), view.getFloat32(off + 4, true)];
-                off += 8;
-                const plane = [view.getFloat32(off, true), view.getFloat32(off + 4, true)];
-                off += 8;
+                let result = common.readString(view, off, u8);
+                const pid = result.str;
+                off = result.off;
+
+                result = common.readVector(view, off);
+                const pos = result.vector;
+                off = result.off;
+
+                result = common.readVector(view, off);
+                const dir = result.vector;
+                off = result.off;
+
+                result = common.readVector(view, off);
+                const plane = result.vector;
+                off = result.off;
+
                 const health = view.getFloat32(off, true);
                 off += 4;
 
@@ -886,12 +894,14 @@ export class Game {
             const spriteCount = view.getUint16(off, true);
             off += 2;
             for (let i = 0; i < spriteCount; i++) {
-                const tagLen = view.getUint8(off);
-                off += 1;
-                const tag = dec.decode(u8.subarray(off, off + tagLen));
-                off += tagLen;
-                const pos = [view.getFloat32(off, true), view.getFloat32(off + 4, true)];
-                off += 8;
+                let result = common.readString(view, off, u8);
+                const tag = result.str;
+                off = result.off;
+
+                result = common.readVector(view, off);
+                const pos = result.vector;
+                off = result.off;
+
                 const health = view.getFloat32(off, true);
                 off += 4;
 

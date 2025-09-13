@@ -25,22 +25,6 @@ export const map = [
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
 ];
 
-export const map2 = [
-    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
-    [4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4],
-    [4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4],
-    [4, 0, 0, 0, 0, 0, 0, 0, 4, 4, 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 4],
-    [4, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 4],
-    [4, 4, 0, 4, 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 4],
-    [4, 0, 0, 4, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 4],
-    [4, 0, 0, 0, 0, 0, 5, 0, 4, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 4],
-    [4, 0, 0, 4, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 4],
-    [4, 0, 0, 4, 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 4],
-    [4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 4],
-    [4, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 4],
-    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
-];
-
 export function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
 }
@@ -80,6 +64,39 @@ export function rotateVectors(dir, plane, angle) {
     const newDir = [dir[0] * cos - dir[1] * sin, oldDirX * sin + dir[1] * cos];
     const newPlane = [plane[0] * cos - plane[1] * sin, oldPlaneX * sin + plane[1] * cos];
     return { dir: newDir, plane: newPlane };
+}
+
+export function writeVector(view, off, vector) {
+    view.setFloat32(off, vector[0], true);
+    off += 4;
+    view.setFloat32(off, vector[1], true);
+    off += 4;
+    return off;
+}
+
+export function readVector(view, off) {
+    const x = view.getFloat32(off, true);
+    off += 4;
+    const y = view.getFloat32(off, true);
+    off += 4;
+    return { vector: [x, y], off };
+}
+
+export function writeString(view, off, str) {
+    const bytes = new TextEncoder().encode(str);
+    view.setUint8(off, bytes.length);
+    off += 1;
+    new Uint8Array(view.buffer, off, bytes.length).set(bytes);
+    off += bytes.length;
+    return off;
+}
+
+export function readString(view, off, u8) {
+    const len = view.getUint8(off);
+    off += 1;
+    const str = new TextDecoder().decode(u8.subarray(off, off + len));
+    off += len;
+    return { str, off };
 }
 
 export function tryMovePosition(pos, dx, dy, levelMap) {
@@ -180,18 +197,16 @@ export function performShot(player, allEntities, damageAmount, isServer = false)
     for (const targetEntity of allEntities.values()) {
         if (targetEntity.id === player.id) continue;
 
-        let entityX, entityY, entityWidth, entityTag;
+        let entityX, entityY, entityWidth;
 
         if (targetEntity.type === 'player') {
             entityX = targetEntity.pos[0];
             entityY = targetEntity.pos[1];
             entityWidth = GAME_CONSTANTS.PLAYER_WIDTH;
-            entityTag = targetEntity.id;
         } else if (targetEntity.type === 'enemy') {
             entityX = targetEntity.pos[0];
             entityY = targetEntity.pos[1];
             entityWidth = 0.5;
-            entityTag = targetEntity.tag;
         } else {
             continue;
         }
@@ -210,16 +225,12 @@ export function performShot(player, allEntities, damageAmount, isServer = false)
     }
 
     if (hitTarget && closestHit < Infinity) {
-        if (isServer) {
-            console.log(`Server: ${player.id} hit target:`, hitTarget.id || hitTarget.tag);
-            if (hitTarget.health !== undefined) {
-                hitTarget.takeDamage(damageAmount);
-            }
+        if (isServer && hitTarget.health !== undefined) {
+            hitTarget.takeDamage(damageAmount);
         }
-        return hitTarget; // Return the hit target for client-side use
-    } else {
-        if (isServer) return null;
+        return hitTarget;
     }
+    return null;
 }
 
 export function applyInputToPlayer(player, deltaTime, levelMap) {
@@ -264,93 +275,76 @@ export function applyInputToPlayer(player, deltaTime, levelMap) {
 }
 
 export function encodePlayers(playersArr, spritesArr) {
-    const enc = new TextEncoder();
-    let size = 1 + 2; // Type (1 byte) + player count (2 bytes)
-    const encodedPlayers = playersArr.map((p) => ({ p, idBytes: enc.encode(p.id) }));
-    for (const { idBytes } of encodedPlayers) size += 1 + idBytes.length + 4 * 7; // idLen (1) + id (N) + pos (2) + dir (2) + plane (2) + health (1)
+    let size = 2;
+    for (const p of playersArr) {
+        size += 1 + new TextEncoder().encode(p.id).length + 4 * 7;
+    }
 
-    size += 2; // Sprite count (2 bytes)
-    const encodedSprites = spritesArr.map((s) => ({ s, tagBytes: enc.encode(s.tag) }));
-    for (const { tagBytes } of encodedSprites) size += 1 + tagBytes.length + 4 * 3; // tagLen (1) + tag (N) + pos (2) + health (1)
+    size += 2;
+    for (const s of spritesArr) {
+        size += 1 + new TextEncoder().encode(s.tag).length + 4 * 3;
+    }
 
     const buf = new ArrayBuffer(size);
     const view = new DataView(buf);
     let off = 0;
-    view.setUint8(off, 11); // Message type: update
-    off += 1;
     view.setUint16(off, playersArr.length, true);
     off += 2;
-    for (const { p, idBytes } of encodedPlayers) {
-        view.setUint8(off, idBytes.length);
-        off += 1;
-        new Uint8Array(buf, off, idBytes.length).set(idBytes);
-        off += idBytes.length;
-        view.setFloat32(off, p.pos[0], true);
-        off += 4;
-        view.setFloat32(off, p.pos[1], true);
-        off += 4;
-        view.setFloat32(off, p.dir[0], true);
-        off += 4;
-        view.setFloat32(off, p.dir[1], true);
-        off += 4;
-        view.setFloat32(off, p.plane[0], true);
-        off += 4;
-        view.setFloat32(off, p.plane[1], true);
-        off += 4;
+    for (const p of playersArr) {
+        off = writeString(view, off, p.id);
+        off = writeVector(view, off, p.pos);
+        off = writeVector(view, off, p.dir);
+        off = writeVector(view, off, p.plane);
         view.setFloat32(off, p.health, true);
         off += 4;
     }
 
     view.setUint16(off, spritesArr.length, true);
     off += 2;
-    for (const { s, tagBytes } of encodedSprites) {
-        view.setUint8(off, tagBytes.length);
-        off += 1;
-        new Uint8Array(buf, off, tagBytes.length).set(tagBytes);
-        off += tagBytes.length;
-        view.setFloat32(off, s.pos[0], true);
-        off += 4;
-        view.setFloat32(off, s.pos[1], true);
-        off += 4;
+    for (const s of spritesArr) {
+        off = writeString(view, off, s.tag);
+        off = writeVector(view, off, s.pos);
         view.setFloat32(off, s.health, true);
         off += 4;
     }
     return buf;
 }
 
+export function encodeUpdate(playersArr, spritesArr) {
+    const encoded = encodePlayers(playersArr, spritesArr);
+    const buf = new ArrayBuffer(1 + encoded.byteLength);
+    const view = new DataView(buf);
+    view.setUint8(0, MESSAGE_TYPE_UPDATE);
+    new Uint8Array(buf, 1).set(new Uint8Array(encoded));
+    return buf;
+}
+
 export function encodeHello(selfId, playersArr) {
-    const enc = new TextEncoder();
-    const idBytes = enc.encode(selfId);
-    const playersBuf = encodePlayers(playersArr, []); // Initial hello doesn't send sprites
-    const total = 1 + 1 + idBytes.length + playersBuf.byteLength;
+    const playersBuf = encodePlayers(playersArr, []);
+    const total = 1 + (1 + new TextEncoder().encode(selfId).length) + playersBuf.byteLength;
     const buf = new ArrayBuffer(total);
     const view = new DataView(buf);
     let off = 0;
-    view.setUint8(off, 10);
+    view.setUint8(off, MESSAGE_TYPE_HELLO);
     off += 1;
-    view.setUint8(off, idBytes.length);
-    off += 1;
-    new Uint8Array(buf, off, idBytes.length).set(idBytes);
-    off += idBytes.length;
+    off = writeString(view, off, selfId);
     new Uint8Array(buf, off).set(new Uint8Array(playersBuf));
     return buf;
 }
 
-export const MESSAGE_TYPE_IDENTIFY = 0; // New message type for client identification
+export const MESSAGE_TYPE_IDENTIFY = 0;
 export const MESSAGE_TYPE_MOVE_INPUT = 1;
 export const MESSAGE_TYPE_SHOOT_ACTION = 2;
-export const MESSAGE_TYPE_MOUSE_INPUT = 3; // New message type for mouse input
+export const MESSAGE_TYPE_MOUSE_INPUT = 3;
+export const MESSAGE_TYPE_HELLO = 10;
+export const MESSAGE_TYPE_UPDATE = 11;
 
 export function encodeIdentify(clientId) {
-    const enc = new TextEncoder();
-    const idBytes = enc.encode(clientId);
-    const buf = new ArrayBuffer(1 + 1 + idBytes.length); // Type (1 byte) + idLen (1 byte) + id (N bytes)
+    const buf = new ArrayBuffer(1 + 1 + new TextEncoder().encode(clientId).length);
     const view = new DataView(buf);
     let off = 0;
     view.setUint8(off, MESSAGE_TYPE_IDENTIFY);
     off += 1;
-    view.setUint8(off, idBytes.length);
-    off += 1;
-    new Uint8Array(buf, off, idBytes.length).set(idBytes);
+    off = writeString(view, off, clientId);
     return buf;
 }

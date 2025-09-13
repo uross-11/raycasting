@@ -1,7 +1,7 @@
 import { WebSocketServer } from "ws";
 import { monitorEventLoopDelay } from "node:perf_hooks";
 import * as common from "./common.js";
-import { encodePlayers, encodeHello, clamp, applyInputToPlayer, MOVE_SPEED, ROTATION_SPEED, intersectRayAABB, performShot, MESSAGE_TYPE_IDENTIFY, MESSAGE_TYPE_MOVE_INPUT, MESSAGE_TYPE_SHOOT_ACTION, MESSAGE_TYPE_MOUSE_INPUT, rotateVectors } from "./common.js";
+import { encodePlayers, encodeHello, clamp, applyInputToPlayer, MOVE_SPEED, ROTATION_SPEED, intersectRayAABB, performShot, MESSAGE_TYPE_IDENTIFY, MESSAGE_TYPE_MOVE_INPUT, MESSAGE_TYPE_SHOOT_ACTION, MESSAGE_TYPE_MOUSE_INPUT, rotateVectors, encodeUpdate } from "./common.js";
 
 const wss = new WebSocketServer({ port: 6900 });
 
@@ -111,9 +111,11 @@ wss.on("connection", (ws) => {
             const type = view.getUint8(0);
 
             if (type === MESSAGE_TYPE_IDENTIFY) {
-                const idLen = view.getUint8(1);
-                const dec = new TextDecoder();
-                const clientIdFromClient = dec.decode(buf.subarray(2, 2 + idLen));
+                // const idLen = view.getUint8(1);
+                // const dec = new TextDecoder();
+                // const clientIdFromClient = dec.decode(buf.subarray(2, 2 + idLen));
+                const result = common.readString(view, 1, buf); // Read string starting at offset 1
+                const clientIdFromClient = result.str;
 
                 if (ws.id !== clientIdFromClient) { // Only update if the client's ID is different from the temporary one
                     // Remove the old entry if it exists (for the temporary ID)
@@ -228,13 +230,7 @@ setInterval(() => {
     const serverPlayers = Array.from(entities.values()).filter(e => e.type === 'player').map(({ ws: _ws, ...rest }) => rest);
     const serverSprites = Array.from(entities.values()).filter(e => e.type === 'enemy').map((s) => ({ pos: s.pos, health: s.health, tag: s.tag }));
 
-    const buf = (() => {
-        // Re-use encodePlayers but change type byte to 11 (update)
-        const tmp = common.encodePlayers(serverPlayers, serverSprites);
-        const u8 = new Uint8Array(tmp);
-        u8[0] = 11;
-        return tmp;
-    })();
+    const buf = common.encodeUpdate(serverPlayers, serverSprites); // Use the new encodeUpdate function
 
     for (const entity of entities.values()) {
         if (entity.type === 'player') {

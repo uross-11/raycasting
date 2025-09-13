@@ -1,5 +1,5 @@
 import * as game from "./game.js";
-import { mapKeyCode, MESSAGE_TYPE_IDENTIFY, encodeIdentify, MESSAGE_TYPE_MOVE_INPUT, MESSAGE_TYPE_SHOOT_ACTION, MESSAGE_TYPE_MOUSE_INPUT } from "./common.js";
+import { mapKeyCode, MESSAGE_TYPE_IDENTIFY, encodeIdentify, MESSAGE_TYPE_MOVE_INPUT, MESSAGE_TYPE_SHOOT_ACTION, MESSAGE_TYPE_MOUSE_INPUT, readString, MESSAGE_TYPE_HELLO } from "./common.js";
 
 const CANVAS_WIDTH = 16 * game.FACTOR;
 const CANVAS_HEIGHT = 9 * game.FACTOR;
@@ -33,9 +33,9 @@ const CANVAS_HEIGHT = 9 * game.FACTOR;
         if (e.repeat) return;
         const changed = gameInstance.handleKeyDown(e.code);
         if (changed) {
+            const buf = new ArrayBuffer(3); // Create once
+            const view = new DataView(buf);
             if (e.code === 'KeyF') {
-                const buf = new ArrayBuffer(3);
-                const view = new DataView(buf);
                 view.setUint8(0, MESSAGE_TYPE_SHOOT_ACTION); // Type 2 for shoot action
                 view.setUint8(1, 0); // Key is not used for shoot, set to 0
                 view.setUint8(2, 1); // Pressed: true
@@ -43,8 +43,6 @@ const CANVAS_HEIGHT = 9 * game.FACTOR;
             } else {
                 const key = mapKeyCode(e.code);
                 if (key !== 255) {
-                    const buf = new ArrayBuffer(3);
-                    const view = new DataView(buf);
                     view.setUint8(0, MESSAGE_TYPE_MOVE_INPUT);
                     view.setUint8(1, key);
                     view.setUint8(2, 1);
@@ -62,7 +60,7 @@ const CANVAS_HEIGHT = 9 * game.FACTOR;
             } else {
                 const key = mapKeyCode(e.code);
                 if (key !== 255) {
-                    const buf = new ArrayBuffer(3);
+                    const buf = new ArrayBuffer(3); // Create once
                     const view = new DataView(buf);
                     view.setUint8(0, MESSAGE_TYPE_MOVE_INPUT);
                     view.setUint8(1, key);
@@ -105,10 +103,9 @@ const CANVAS_HEIGHT = 9 * game.FACTOR;
         if (event.data instanceof ArrayBuffer) {
             const view = new DataView(event.data);
             const type = view.getUint8(0);
-            if (type === 10) { // Hello message
-                const idLen = view.getUint8(1);
-                const dec = new TextDecoder();
-                const serverClientId = dec.decode(new Uint8Array(event.data, 2, idLen));
+            if (type === MESSAGE_TYPE_HELLO) { // Hello message
+                const result = readString(view, 1, new Uint8Array(event.data)); // Read string starting at offset 1
+                const serverClientId = result.str;
                 localStorage.setItem('clientId', serverClientId);
             }
             gameInstance.handleBinaryMessage(event.data);
